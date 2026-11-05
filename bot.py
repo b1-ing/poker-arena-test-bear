@@ -128,7 +128,9 @@ class BearBot(PokerBot):
         pot = gs.pot_size
         passive_opp = self._fold_rate() < 0.22  # they call us down: stop bluffing
         r = self.rng.random()
-        bluff_freq = 0.25 if passive_opp else 0.6
+        bluff_freq = 0.2 if passive_opp else 0.45
+        if len(board) == 5 and eq < 0.25:
+            bluff_freq *= 0.6  # river air bluffs get called too often
 
         # ---- facing no bet: check or bet -------------------------------
         if to_call == 0:
@@ -148,6 +150,10 @@ class BearBot(PokerBot):
         price = to_call / (pot + to_call) if pot + to_call else 0.0
         big = to_call > 0.6 * max(pot - to_call, 1)
         preflop = not board
+        # A betting opponent holds more than a random hand: discount equity
+        # in proportion to the size of the bet (more on later streets).
+        frac = to_call / max(pot - to_call, 1)
+        eq -= min(0.14, 0.06 * frac) * (1.0 if preflop else 1.5)
 
         if can_raise:
             if eq >= 0.72:
@@ -159,7 +165,7 @@ class BearBot(PokerBot):
             if not big and not passive_opp and eq >= 0.3 and r < 0.15:
                 return self._go(gs, 0.9 * pot + to_call)  # bluff raise
 
-        if eq >= price + 0.04:
+        if eq >= price + 0.05:
             return Action.call()
         if preflop and to_call <= (gs.big_blind or 20) and eq >= 0.38:
             return Action.call()
